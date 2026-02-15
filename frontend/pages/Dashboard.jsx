@@ -5,8 +5,9 @@ import API from "../api/axios";
 import { io } from "socket.io-client";
 import StudentDashboard from "./StudentDashboard";
 import AddUserForm from "../components/AddUserForm";
+import { API_BASE_URL, SOCKET_URL } from "../src/config";
 
-const socket = io("http://localhost:5000", { autoConnect: false });
+const socket = io(SOCKET_URL, { autoConnect: false });
 
 function Dashboard() {
   const [user, setUser] = useState(null);
@@ -368,7 +369,7 @@ function Dashboard() {
     }
 
     window.open(
-      `http://localhost:5000/api/attendance/export-csv?token=${encodeURIComponent(token)}`,
+      `${API_BASE_URL}/attendance/export-csv?token=${encodeURIComponent(token)}`,
       "_blank"
     );
   };
@@ -381,7 +382,7 @@ function Dashboard() {
     }
 
     window.open(
-      `http://localhost:5000/api/attendance/export-pdf?token=${encodeURIComponent(token)}`,
+      `${API_BASE_URL}/attendance/export-pdf?token=${encodeURIComponent(token)}`,
       "_blank"
     );
   };
