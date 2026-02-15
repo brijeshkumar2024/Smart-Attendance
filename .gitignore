@@ -1,0 +1,16 @@
+node_modules/
+**/node_modules/
+
+.env
+*.env
+**/.env
+**/*.env
+
+.DS_Store
+Thumbs.db
+
+dist/
+build/
+coverage/
+
+Server/.gitignore/
