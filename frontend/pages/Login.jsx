@@ -21,6 +21,12 @@ function Login() {
       navigate("/dashboard");
 
     } catch (error) {
+      if (error.message === "Network Error") {
+        alert(
+          "Server se connection nahi ho pa raha. Backend URL (VITE_API_BASE_URL) aur backend deployment status check karo."
+        );
+        return;
+      }
       const message =
         error.response?.data?.message || error.message || "Login failed";
       alert(message);

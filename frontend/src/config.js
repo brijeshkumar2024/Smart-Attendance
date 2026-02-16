@@ -1,4 +1,6 @@
-const fallbackApiBaseUrl = "http://localhost:5000/api";
+const fallbackApiBaseUrl = import.meta.env.DEV
+  ? "http://localhost:5000/api"
+  : "https://smart-attendance-api.onrender.com/api";
 
 const normalizeUrl = (url) => String(url || "").replace(/\/+$/, "");
 
