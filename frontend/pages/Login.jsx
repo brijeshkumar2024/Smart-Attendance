@@ -1,6 +1,7 @@
 import { useState } from "react";
 import API from "../api/axios";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../src/config";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -21,9 +22,10 @@ function Login() {
       navigate("/dashboard");
 
     } catch (error) {
+      console.error("Login failed:", error);
       if (error.message === "Network Error") {
         alert(
-          "Server se connection nahi ho pa raha. Backend URL (VITE_API_BASE_URL) aur backend deployment status check karo."
+          `Server se connection nahi ho pa raha. Current API: ${API_BASE_URL}`
         );
         return;
       }
