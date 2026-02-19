@@ -1026,7 +1026,10 @@ function Dashboard() {
                   </option>
                 ))}
               </select>
-              <div className="admin-actions" style={{ marginTop: "0.45rem" }}>
+            </div>
+
+            <div className="field-full teacher-student-controls">
+              <div className="admin-actions">
                 <button
                   className="btn-ghost"
                   type="button"
@@ -1036,7 +1039,7 @@ function Dashboard() {
                   {isLoadingTeacherStudents ? "Loading..." : "Load Students"}
                 </button>
               </div>
-              <div className="teacher-filter-grid" style={{ marginTop: "0.45rem" }}>
+              <div className="teacher-filter-grid">
                 <input
                   className="input-field"
                   placeholder="Search student name/email"

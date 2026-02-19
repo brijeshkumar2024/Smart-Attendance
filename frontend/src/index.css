@@ -615,10 +615,18 @@ button:disabled {
 }
 
 .teacher-filter-grid {
-  margin-top: 1rem;
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(260px, 1fr);
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 240px);
   gap: 0.8rem;
+}
+
+.teacher-student-controls {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.teacher-student-controls .admin-actions {
+  margin-top: 0;
 }
 
 .teacher-bulk-shortcuts {
