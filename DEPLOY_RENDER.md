@@ -27,6 +27,8 @@ In Render -> `smart-attendance-api` -> `Environment`, add:
 - `SMTP_FROM`
 
 `NODE_ENV=production` is already set by `render.yaml`.
+`CORS_ORIGINS` is auto-linked from frontend `RENDER_EXTERNAL_URL` by `render.yaml`.
+If you use a custom frontend domain, update `CORS_ORIGINS` manually to that domain.
 
 ## 4) Deploy
 1. Trigger deploy for backend first.
@@ -34,7 +36,8 @@ In Render -> `smart-attendance-api` -> `Environment`, add:
 
 Frontend uses:
 - `VITE_API_BASE_URL` from backend `RENDER_EXTERNAL_URL` automatically.
+- `VITE_SOCKET_URL` from backend `RENDER_EXTERNAL_URL` automatically.
 
 ## 5) Verify
-1. Backend health: open backend URL, should show `Smart Attendance Backend Running`.
+1. Backend health: open `https://<backend-url>/health`, should return JSON with `"status":"ok"`.
 2. Open frontend URL and login.

@@ -20,6 +20,37 @@ const classSchema = new mongoose.Schema(
       ref: "Semester",
       default: null,
     },
+    program: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AcademicProgram",
+      default: null,
+    },
+    session: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AcademicSession",
+      default: null,
+    },
+    branch: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AcademicBranch",
+      default: null,
+    },
+    subjectRef: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AcademicSubject",
+      default: null,
+    },
+    academicSemester: {
+      type: Number,
+      min: 1,
+      max: 8,
+      default: null,
+    },
+    groupLabel: {
+      type: String,
+      trim: true,
+      default: "",
+    },
   },
   { timestamps: true }
 );

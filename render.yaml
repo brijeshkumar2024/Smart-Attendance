@@ -5,12 +5,17 @@ services:
     rootDir: Server
     buildCommand: npm ci
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /health
     envVars:
       - key: MONGO_URI
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: smart-attendance-frontend
+          envVarKey: RENDER_EXTERNAL_URL
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -34,6 +39,11 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: smart-attendance-api
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_SOCKET_URL
         fromService:
           type: web
           name: smart-attendance-api

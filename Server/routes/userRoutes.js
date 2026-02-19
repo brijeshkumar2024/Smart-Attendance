@@ -1,13 +1,22 @@
 const jwt = require("jsonwebtoken");
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const User = require("../models/User");
+const AcademicProgram = require("../models/AcademicProgram");
+const AcademicSession = require("../models/AcademicSession");
+const AcademicBranch = require("../models/AcademicBranch");
+const AcademicSubject = require("../models/AcademicSubject");
+const Class = require("../models/Class");
 const bcrypt = require("bcryptjs");
 const authMiddleware = require("../config/authMiddleware");
 const roleMiddleware = require("../config/roleMiddleware");
+const { generateTeacherId } = require("../utils/generateTeacherId");
+const { getTeacherClassIds } = require("../utils/teacherClassAccess");
 
-
-
+const normalizeText = (value) => (typeof value === "string" ? value.trim() : "");
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const isValidGroupLabel = (value) => ["1", "2", "3", "4"].includes(normalizeText(value));
 
 // Create User
 router.post(
@@ -15,7 +24,24 @@ router.post(
   authMiddleware,
   async (req, res, next) => {
     try {
-      const { name, email, password, role, subject } = req.body;
+      const name = normalizeText(req.body.name);
+      const email = normalizeText(req.body.email).toLowerCase();
+      const password = String(req.body.password || "");
+      const role = normalizeText(req.body.role).toLowerCase();
+      const subject = normalizeText(req.body.subject);
+      const programId = normalizeText(req.body.programId);
+      const sessionId = normalizeText(req.body.sessionId);
+      const branchId = normalizeText(req.body.branchId);
+      const subjectId = normalizeText(req.body.subjectId);
+      const semester = Number.parseInt(req.body.semester, 10);
+      const groupLabel = normalizeText(req.body.groupLabel);
+
+      if (!name || !email || password.length < 6) {
+        return res.status(400).json({ message: "Name, email and password are required" });
+      }
+      if (!["admin", "teacher", "student"].includes(role)) {
+        return res.status(400).json({ message: "Invalid role" });
+      }
 
       if (req.user.role === "student") {
         return res.status(403).json({
@@ -39,12 +65,101 @@ router.post(
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      const user = new User({
+      const userPayload = {
         name,
         email,
         password: hashedPassword,
         role,
-        subject: role === "teacher" ? (subject || "") : "",
+        teacherId: null,
+        subject: "",
+        program: null,
+        session: null,
+        branch: null,
+        semester: null,
+        groupLabel: "",
+        subjectRef: null,
+      };
+
+      const hasStudentScopeInput =
+        [programId, sessionId, branchId, groupLabel].some(Boolean) || Number.isInteger(semester);
+
+      if (role === "student") {
+        if (
+          req.user.role === "admin" &&
+          (!programId || !sessionId || !branchId || !Number.isInteger(semester) || !groupLabel)
+        ) {
+          return res.status(400).json({
+            message: "Program, session, branch, semester, and group are required for student",
+          });
+        }
+
+        if (hasStudentScopeInput) {
+          if (
+            !mongoose.Types.ObjectId.isValid(programId) ||
+            !mongoose.Types.ObjectId.isValid(sessionId) ||
+            !mongoose.Types.ObjectId.isValid(branchId) ||
+            !Number.isInteger(semester) ||
+            semester < 1 ||
+            semester > 8 ||
+            !isValidGroupLabel(groupLabel)
+          ) {
+            return res.status(400).json({
+              message: "Invalid program/session/branch/semester/group for student",
+            });
+          }
+
+          const [program, session, branch] = await Promise.all([
+            AcademicProgram.findOne({ _id: programId, isActive: true }),
+            AcademicSession.findOne({ _id: sessionId, program: programId, isActive: true }),
+            AcademicBranch.findOne({
+              _id: branchId,
+              program: programId,
+              session: sessionId,
+              isActive: true,
+            }),
+          ]);
+
+          if (!program || !session || !branch) {
+            return res.status(404).json({ message: "Selected student scope not found" });
+          }
+
+          userPayload.program = program._id;
+          userPayload.session = session._id;
+          userPayload.branch = branch._id;
+          userPayload.semester = semester;
+          userPayload.groupLabel = groupLabel;
+        }
+      }
+
+      if (role === "teacher") {
+        userPayload.teacherId = await generateTeacherId();
+
+        if (subjectId) {
+          if (!mongoose.Types.ObjectId.isValid(subjectId)) {
+            return res.status(400).json({ message: "Invalid subject selection" });
+          }
+
+          const selectedSubject = await AcademicSubject.findOne({
+            _id: subjectId,
+            isActive: true,
+          });
+          if (!selectedSubject) {
+            return res.status(404).json({ message: "Selected subject not found" });
+          }
+
+          userPayload.subject = selectedSubject.name;
+          userPayload.subjectRef = selectedSubject._id;
+          userPayload.program = selectedSubject.program;
+          userPayload.session = selectedSubject.session;
+          userPayload.branch = selectedSubject.branch;
+          userPayload.semester = selectedSubject.semester;
+        } else if (subject) {
+          userPayload.subject = subject;
+        }
+      }
+
+      const user = new User({
+        ...userPayload,
       });
 
       const savedUser = await user.save();
@@ -112,7 +227,10 @@ router.get(
   roleMiddleware("admin"),
   async (req, res, next) => {
     try {
-      const users = await User.find().select("-password").sort({ createdAt: -1 });
+      const users = await User.find()
+        .select("-password")
+        .populate("session", "label")
+        .sort({ createdAt: -1 });
       res.json(users);
     } catch (error) {
       next(error);
@@ -137,12 +255,51 @@ router.patch(
       }
 
       user.role = role;
+      if (role === "teacher" && !user.teacherId) {
+        user.teacherId = await generateTeacherId();
+      }
       if (role !== "teacher") {
         user.subject = "";
+        user.subjectRef = null;
+      }
+      if (role !== "student") {
+        user.program = null;
+        user.session = null;
+        user.branch = null;
+        user.semester = null;
+        user.groupLabel = "";
       }
 
       const updated = await user.save();
       res.json({ message: "Role updated", user: updated });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.patch(
+  "/:id/student-group",
+  authMiddleware,
+  roleMiddleware("admin"),
+  async (req, res, next) => {
+    try {
+      const groupLabel = normalizeText(req.body.groupLabel);
+      if (!isValidGroupLabel(groupLabel)) {
+        return res.status(400).json({ message: "Group must be between 1 and 4" });
+      }
+
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      if (user.role !== "student") {
+        return res.status(400).json({ message: "Group can be changed only for students" });
+      }
+
+      user.groupLabel = groupLabel;
+      const updated = await user.save();
+      res.json({ message: "Student group updated", user: updated });
     } catch (error) {
       next(error);
     }
@@ -164,6 +321,27 @@ router.patch(
       await user.save();
 
       res.json({ message: "User deactivated successfully" });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.patch(
+  "/:id/activate",
+  authMiddleware,
+  roleMiddleware("admin"),
+  async (req, res, next) => {
+    try {
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      user.isActive = true;
+      await user.save();
+
+      res.json({ message: "User activated successfully" });
     } catch (error) {
       next(error);
     }
@@ -205,7 +383,22 @@ router.get(
   roleMiddleware("admin"),
   async (req, res, next) => {
     try {
-      const teachers = await User.find({ role: "teacher", isActive: true }).select("name email subject");
+      const filter = { role: "teacher", isActive: true };
+      const subjectId = normalizeText(req.query.subjectId);
+      const subject = normalizeText(req.query.subject);
+
+      if (subjectId) {
+        if (!mongoose.Types.ObjectId.isValid(subjectId)) {
+          return res.status(400).json({ message: "Invalid subject filter" });
+        }
+        filter.subjectRef = subjectId;
+      } else if (subject) {
+        filter.subject = new RegExp(`^${escapeRegex(subject)}$`, "i");
+      }
+
+      const teachers = await User.find(filter)
+        .select("name email teacherId subject subjectRef")
+        .sort({ name: 1 });
       res.json(teachers);
     } catch (error) {
       next(error);
@@ -228,7 +421,49 @@ router.get(
   roleMiddleware("teacher", "admin"),
   async (req, res, next) => {
     try {
-      const students = await User.find({ role: "student", isActive: true }).select("name email");
+      const classId = normalizeText(req.query.classId);
+      const filter = { role: "student", isActive: true };
+
+      if (classId) {
+        if (!mongoose.Types.ObjectId.isValid(classId)) {
+          return res.status(400).json({ message: "Invalid class id" });
+        }
+
+        const targetClass = await Class.findById(classId).select(
+          "program session branch academicSemester groupLabel"
+        );
+        if (!targetClass) {
+          return res.status(404).json({ message: "Class not found" });
+        }
+
+        if (req.user.role === "teacher") {
+          const teacherClassIds = await getTeacherClassIds(req.user.id, {
+            includeAllOverrides: true,
+          });
+          if (!teacherClassIds.includes(classId)) {
+            return res.status(403).json({ message: "Not authorized for this class" });
+          }
+        }
+
+        const hasAcademicScope =
+          targetClass.program &&
+          targetClass.session &&
+          targetClass.branch &&
+          Number.isInteger(targetClass.academicSemester) &&
+          targetClass.groupLabel;
+
+        if (hasAcademicScope) {
+          filter.program = targetClass.program;
+          filter.session = targetClass.session;
+          filter.branch = targetClass.branch;
+          filter.semester = targetClass.academicSemester;
+          filter.groupLabel = targetClass.groupLabel;
+        }
+      }
+
+      const students = await User.find(filter)
+        .select("name email groupLabel program session branch semester")
+        .sort({ name: 1 });
       res.json(students);
     } catch (error) {
       next(error);

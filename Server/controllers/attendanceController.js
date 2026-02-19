@@ -1,8 +1,14 @@
 const Attendance = require("../models/Attendance");
 const Class = require("../models/Class");
+const User = require("../models/User");
 const AuditLog = require("../models/AuditLog");
 const PDFDocument = require("pdfkit");
 const mongoose = require("mongoose");
+const {
+  normalizeDate,
+  getTeacherClassIds,
+  isTeacherAuthorizedForClass,
+} = require("../utils/teacherClassAccess");
 
 const getLowAttendance = async (req, res, next) => {
   try {
@@ -50,6 +56,12 @@ const getLowAttendance = async (req, res, next) => {
       },
       {
         $unwind: "$student"
+      },
+      {
+        $match: {
+          "student.role": "student",
+          "student.isActive": true,
+        },
       },
       {
         $project: {
@@ -105,14 +117,60 @@ const bulkMarkAttendance = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid data" });
     }
 
-    const attendanceDate = new Date(date);
-    attendanceDate.setHours(0, 0, 0, 0);
+    if (!mongoose.Types.ObjectId.isValid(classId)) {
+      return res.status(400).json({ message: "Valid class is required" });
+    }
+
+    const attendanceDate = normalizeDate(date);
+    if (!attendanceDate) {
+      return res.status(400).json({ message: "Valid date is required" });
+    }
+
+    const uniqueStudentIds = Array.from(
+      new Set(attendance.map((entry) => String(entry.studentId || "").trim()).filter(Boolean))
+    );
+
+    if (
+      uniqueStudentIds.length === 0 ||
+      uniqueStudentIds.some((id) => !mongoose.Types.ObjectId.isValid(id))
+    ) {
+      return res.status(400).json({ message: "Valid student IDs are required" });
+    }
+
+    const activeStudents = await User.find({
+      _id: { $in: uniqueStudentIds },
+      role: "student",
+      isActive: true,
+    }).select("_id");
+
+    const activeStudentIds = new Set(activeStudents.map((entry) => entry._id.toString()));
+    const blockedStudentIds = uniqueStudentIds.filter((id) => !activeStudentIds.has(id));
+    if (blockedStudentIds.length > 0) {
+      return res.status(403).json({
+        message:
+          "One or more students are inactive. Admin must activate student account before attendance can be marked.",
+      });
+    }
+
+    const foundClass = await Class.findById(classId);
+    if (!foundClass) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    const canMark = await isTeacherAuthorizedForClass({
+      teacherId: req.user.id,
+      classDoc: foundClass,
+      date: attendanceDate,
+    });
+    if (!canMark) {
+      return res.status(403).json({ message: "Not authorized for this class on selected date" });
+    }
 
     const operations = attendance.map((entry) => ({
       updateOne: {
         filter: {
           student: entry.studentId,
-          class: classId,
+          class: foundClass._id,
           date: attendanceDate,
         },
         update: {
@@ -123,7 +181,7 @@ const bulkMarkAttendance = async (req, res, next) => {
           },
           $setOnInsert: {
             student: entry.studentId,
-            class: classId,
+            class: foundClass._id,
             date: attendanceDate,
           },
         },
@@ -137,7 +195,7 @@ const bulkMarkAttendance = async (req, res, next) => {
       action: "bulk_mark",
       performedBy: req.user.id,
       details: {
-        classId,
+        classId: foundClass._id,
         date: attendanceDate,
         matchedCount: bulkResult.matchedCount,
         modifiedCount: bulkResult.modifiedCount,
@@ -248,18 +306,26 @@ const getMonthlyReport = async (req, res, next) => {
     }
 
     const matchFilter = {};
+    const monthStart = new Date(year, month - 1, 1);
+    monthStart.setHours(0, 0, 0, 0);
+    const monthEnd = new Date(year, month, 0);
+    monthEnd.setHours(23, 59, 59, 999);
 
     if (req.user.role === "student") {
       matchFilter.student = new mongoose.Types.ObjectId(req.user.id);
     } else if (req.user.role === "teacher") {
-      const teacherClasses = await Class.find({ teacher: req.user.id }).select("_id");
-      let classIds = teacherClasses.map((item) => item._id);
+      let classIds = await getTeacherClassIds(req.user.id, {
+        start: monthStart,
+        end: monthEnd,
+      });
 
       if (classId && mongoose.Types.ObjectId.isValid(classId)) {
-        classIds = classIds.filter((id) => id.toString() === classId);
+        classIds = classIds.filter((id) => id.toString() === classId.toString());
       }
 
-      matchFilter.class = { $in: classIds };
+      matchFilter.class = {
+        $in: classIds.map((id) => new mongoose.Types.ObjectId(id)),
+      };
 
       if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
         matchFilter.student = new mongoose.Types.ObjectId(studentId);

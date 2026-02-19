@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import API from "../api/axios";
 
-function AddUserForm({ defaultRole, onCreated }) {
+function AddUserForm({ defaultRole, onCreated, onSuccess, onError }) {
+  const roleLabel = defaultRole === "teacher"
+    ? "Teacher"
+    : defaultRole === "admin"
+      ? "Admin"
+      : "Student";
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -11,13 +17,27 @@ function AddUserForm({ defaultRole, onCreated }) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    setForm({
+      name: "",
+      email: "",
+      password: "",
+      role: defaultRole,
+      subject: "",
+    });
+  }, [defaultRole]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
       setIsSubmitting(true);
       await API.post("/users", form);
-      alert("User created");
+      if (onSuccess) {
+        onSuccess(`${roleLabel} created`);
+      } else {
+        alert("User created");
+      }
       setForm({
         name: "",
         email: "",
@@ -30,7 +50,12 @@ function AddUserForm({ defaultRole, onCreated }) {
       }
     } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || "Failed to create user");
+      const message = error.response?.data?.message || "Failed to create user";
+      if (onError) {
+        onError(message);
+      } else {
+        alert(message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -72,7 +97,7 @@ function AddUserForm({ defaultRole, onCreated }) {
       )}
 
       <button className="btn-primary" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "Creating..." : `Add ${defaultRole === "teacher" ? "Teacher" : "Student"}`}
+        {isSubmitting ? "Creating..." : `Add ${roleLabel}`}
       </button>
     </form>
   );

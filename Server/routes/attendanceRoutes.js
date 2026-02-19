@@ -15,16 +15,15 @@ const {
 } = require("../controllers/attendanceController");
 const { getIO } = require("../config/socket");
 const { sendLowAttendanceEmail } = require("../utils/notifications");
+const {
+  normalizeDate,
+  getTeacherClassIds,
+  isTeacherAuthorizedForClass,
+} = require("../utils/teacherClassAccess");
 
 const router = express.Router();
 
 const LOCK_DAYS = 3;
-
-const normalizeDate = (value) => {
-  const date = new Date(value);
-  date.setHours(0, 0, 0, 0);
-  return date;
-};
 
 const getDiffDays = (oldDate, newDate = new Date()) => {
   const old = new Date(oldDate);
@@ -97,6 +96,10 @@ router.post(
     try {
       const { studentId, classId, date, status } = req.body;
       const classInput = typeof classId === "string" ? classId.trim() : classId;
+      const attendanceDate = normalizeDate(date);
+      if (!attendanceDate) {
+        return res.status(400).json({ message: "Valid date is required" });
+      }
 
       let foundClass = null;
       if (mongoose.Types.ObjectId.isValid(classInput)) {
@@ -112,24 +115,34 @@ router.post(
         throw new Error("Class not found (use valid Class ID or exact class name)");
       }
 
-      if (
-        req.user.role === "teacher" &&
-        foundClass.teacher.toString() !== req.user.id
-      ) {
-        res.status(403);
-        throw new Error("Not authorized for this class");
+      if (req.user.role === "teacher") {
+        const canMark = await isTeacherAuthorizedForClass({
+          teacherId: req.user.id,
+          classDoc: foundClass,
+          date: attendanceDate,
+        });
+        if (!canMark) {
+          res.status(403);
+          throw new Error("Not authorized for this class on selected date");
+        }
       }
 
-      const student = await User.findById(studentId);
+      const student = await User.findById(studentId).select("role isActive");
       if (!student || student.role !== "student") {
         res.status(404);
         throw new Error("Student not found");
+      }
+      if (!student.isActive) {
+        return res.status(403).json({
+          message:
+            "Student is inactive. Admin must activate student account before attendance can be marked.",
+        });
       }
 
       const attendance = new Attendance({
         student: studentId,
         class: foundClass._id,
-        date: normalizeDate(date),
+        date: attendanceDate,
         status,
         updatedBy: req.user.id,
       });
@@ -184,9 +197,66 @@ router.get(
   async (req, res, next) => {
     try {
       const match = {};
+      const classFilter = {};
+      const programId = String(req.query.programId || "").trim();
+      const sessionId = String(req.query.sessionId || "").trim();
+      const branchId = String(req.query.branchId || "").trim();
+      const semesterRaw = String(req.query.semester || "").trim();
+      const groupLabel = String(req.query.groupLabel || "").trim();
+      const subject = String(req.query.subject || "").trim();
+
+      if (programId) {
+        if (!mongoose.Types.ObjectId.isValid(programId)) {
+          return res.status(400).json({ message: "Invalid program filter" });
+        }
+        classFilter.program = programId;
+      }
+      if (sessionId) {
+        if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+          return res.status(400).json({ message: "Invalid session filter" });
+        }
+        classFilter.session = sessionId;
+      }
+      if (branchId) {
+        if (!mongoose.Types.ObjectId.isValid(branchId)) {
+          return res.status(400).json({ message: "Invalid branch filter" });
+        }
+        classFilter.branch = branchId;
+      }
+      if (semesterRaw) {
+        const semester = Number.parseInt(semesterRaw, 10);
+        if (!Number.isInteger(semester) || semester < 1 || semester > 8) {
+          return res.status(400).json({ message: "Semester must be between 1 and 8" });
+        }
+        classFilter.academicSemester = semester;
+      }
+      if (groupLabel) {
+        classFilter.groupLabel = groupLabel;
+      }
+      if (subject) {
+        classFilter.subject = subject;
+      }
+
+      let scopedClassIds = null;
+      if (Object.keys(classFilter).length > 0) {
+        const classes = await Class.find(classFilter).select("_id");
+        scopedClassIds = classes.map((entry) => entry._id.toString());
+      }
+
       if (req.user.role === "teacher") {
-        const teacherClasses = await Class.find({ teacher: req.user.id }).select("_id");
-        match.class = { $in: teacherClasses.map((cls) => cls._id) };
+        const teacherClassIds = await getTeacherClassIds(req.user.id, {
+          includeAllOverrides: true,
+        });
+        const filteredClassIds = scopedClassIds
+          ? teacherClassIds.filter((id) => scopedClassIds.includes(id.toString()))
+          : teacherClassIds;
+        match.class = {
+          $in: filteredClassIds.map((id) => new mongoose.Types.ObjectId(id)),
+        };
+      } else if (scopedClassIds) {
+        match.class = {
+          $in: scopedClassIds.map((id) => new mongoose.Types.ObjectId(id)),
+        };
       }
 
       const ranking = await Attendance.aggregate([
@@ -254,10 +324,15 @@ router.get("/", authMiddleware, async (req, res, next) => {
   try {
     const { start, end, classId } = req.query;
     const filter = {};
+    let startDate = null;
+    let endDate = null;
 
     if (start && end) {
-      const startDate = normalizeDate(start);
-      const endDate = normalizeDate(end);
+      startDate = normalizeDate(start);
+      endDate = normalizeDate(end);
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Invalid start or end date" });
+      }
       endDate.setHours(23, 59, 59, 999);
       filter.date = {
         $gte: startDate,
@@ -276,8 +351,11 @@ router.get("/", authMiddleware, async (req, res, next) => {
         .populate("student", "name email")
         .populate("class", "className subject teacher");
     } else if (req.user.role === "teacher") {
-      const teacherClasses = await Class.find({ teacher: req.user.id }).select("_id");
-      const classIds = teacherClasses.map((c) => c._id.toString());
+      const classIds = await getTeacherClassIds(req.user.id, {
+        start: startDate,
+        end: endDate,
+        includeAllOverrides: !startDate || !endDate,
+      });
 
       let teacherClassFilter = classIds;
       if (classId && mongoose.Types.ObjectId.isValid(classId)) {
@@ -387,12 +465,16 @@ router.put(
         throw new Error("Attendance record not found");
       }
 
-      if (
-        req.user.role === "teacher" &&
-        attendance.class.teacher.toString() !== req.user.id
-      ) {
-        res.status(403);
-        throw new Error("Not authorized to update this record");
+      if (req.user.role === "teacher") {
+        const canUpdate = await isTeacherAuthorizedForClass({
+          teacherId: req.user.id,
+          classDoc: attendance.class,
+          date: attendance.date,
+        });
+        if (!canUpdate) {
+          res.status(403);
+          throw new Error("Not authorized to update this record");
+        }
       }
 
       const diffDays = getDiffDays(attendance.date);
@@ -441,11 +523,15 @@ router.delete(
         return res.status(404).json({ message: "Attendance not found" });
       }
 
-      if (
-        req.user.role === "teacher" &&
-        attendance.class.teacher.toString() !== req.user.id
-      ) {
-        return res.status(403).json({ message: "Not authorized to delete this record" });
+      if (req.user.role === "teacher") {
+        const canDelete = await isTeacherAuthorizedForClass({
+          teacherId: req.user.id,
+          classDoc: attendance.class,
+          date: attendance.date,
+        });
+        if (!canDelete) {
+          return res.status(403).json({ message: "Not authorized to delete this record" });
+        }
       }
 
       const diffDays = getDiffDays(attendance.date);

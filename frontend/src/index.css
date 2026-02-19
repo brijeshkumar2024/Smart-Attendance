@@ -203,7 +203,7 @@ a {
 
 .add-user-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0.9rem;
 }
 
@@ -408,6 +408,287 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.admin-quick-actions-card {
+  margin-top: 0.85rem;
+}
+
+.admin-quick-actions {
+  margin-top: 0.75rem;
+  align-items: center;
+}
+
+.download-menu {
+  position: relative;
+}
+
+.download-trigger {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+}
+
+.download-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.download-trigger::after {
+  content: "▾";
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.download-menu-list {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  min-width: 120px;
+  z-index: 20;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid rgba(145, 172, 192, 0.28);
+  background: rgba(9, 23, 35, 0.95);
+  box-shadow: 0 12px 28px rgba(4, 14, 21, 0.45);
+}
+
+.download-menu-item {
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(145, 172, 192, 0.25);
+  background: rgba(10, 22, 33, 0.85);
+  color: #e7f0f8;
+  font-weight: 700;
+}
+
+.download-menu-item:hover {
+  border-color: rgba(88, 212, 196, 0.55);
+}
+
+.admin-filter-grid {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.admin-inline-card {
+  margin-top: 0.85rem;
+}
+
+.admin-inline-form {
+  margin-top: 0.65rem;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.admin-allocation-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.7rem;
+}
+
+.allocated-class-filter-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.65rem;
+}
+
+.class-change-inline {
+  margin-top: 0.55rem;
+  display: grid;
+  gap: 0.45rem;
+  min-width: 220px;
+}
+
+.create-role-switch {
+  margin-top: 0.8rem;
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.create-role-option {
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(145, 172, 192, 0.35);
+  background: rgba(10, 22, 33, 0.78);
+  color: #d8e5f1;
+  padding: 0 0.9rem;
+  font-weight: 700;
+  font-size: 0.84rem;
+}
+
+.create-role-option.active {
+  border-color: rgba(88, 212, 196, 0.7);
+  color: #bdf7f0;
+  background: rgba(20, 67, 64, 0.72);
+}
+
+.admin-kpi-grid {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  margin-bottom: 0.9rem;
+}
+
+.academic-card {
+  margin-bottom: 1rem;
+}
+
+.academic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 0.8rem;
+}
+
+.academic-pill-grid {
+  margin-top: 0.7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.academic-pill {
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(159, 184, 204, 0.35);
+  background: rgba(10, 22, 33, 0.72);
+  color: #dce8f3;
+  padding: 0 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.academic-pill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(88, 212, 196, 0.55);
+}
+
+.academic-pill.active {
+  border-color: rgba(88, 212, 196, 0.7);
+  background: rgba(23, 70, 68, 0.7);
+  color: #b7f8ef;
+}
+
+.academic-form {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.academic-scope-grid {
+  margin-top: 0.7rem;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr);
+  gap: 0.6rem;
+}
+
+.academic-branch-form {
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.6fr) auto;
+  align-items: center;
+}
+
+.academic-subsection {
+  margin-top: 0.9rem;
+  padding-top: 0.2rem;
+}
+
+.academic-subject-form {
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.65fr) auto;
+  align-items: center;
+}
+
+.teacher-kpi-grid {
+  grid-template-columns: 1.5fr repeat(3, minmax(120px, 1fr));
+  margin-bottom: 0.9rem;
+}
+
+.teacher-kpi-text {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.teacher-filter-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(260px, 1fr);
+  gap: 0.8rem;
+}
+
+.teacher-bulk-shortcuts {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.student-controls {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(130px, 0.8fr) minmax(140px, auto);
+  gap: 0.8rem;
+  margin-top: 0.7rem;
+}
+
+.student-summary-grid {
+  margin-top: 1rem;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+}
+
+.student-analytics-head {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.student-chip {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.62rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.student-chip.healthy {
+  border: 1px solid rgba(88, 212, 196, 0.55);
+  color: #b8f7ef;
+  background: rgba(88, 212, 196, 0.15);
+}
+
+.student-chip.warning {
+  border: 1px solid rgba(255, 126, 138, 0.52);
+  color: #ffd7dc;
+  background: rgba(255, 126, 138, 0.18);
+}
+
+.student-metric-note {
+  margin-top: 0.45rem;
+  color: #9ec1d3;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.error-banner {
+  margin-bottom: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 126, 138, 0.5);
+  background: rgba(84, 20, 30, 0.5);
+  color: #ffd9de;
+  padding: 0.72rem 0.9rem;
+  font-weight: 600;
+}
+
 .warning-pill {
   display: inline-flex;
   align-items: center;
@@ -442,6 +723,12 @@ button:disabled {
   color: #bdf7f0;
   font-weight: 700;
   box-shadow: 0 16px 36px rgba(4, 15, 22, 0.5);
+}
+
+.toast-msg.error {
+  border-color: rgba(255, 126, 138, 0.5);
+  background: rgba(62, 17, 25, 0.92);
+  color: #ffd6dc;
 }
 
 .status-select {
@@ -504,7 +791,20 @@ button:disabled {
   .metrics-grid,
   .bulk-actions,
   .monthly-controls,
-  .add-user-grid {
+  .add-user-grid,
+  .admin-allocation-grid,
+  .allocated-class-filter-grid,
+  .admin-filter-grid,
+  .admin-inline-form,
+  .admin-kpi-grid,
+  .teacher-kpi-grid,
+  .teacher-filter-grid,
+  .student-controls,
+  .student-summary-grid,
+  .academic-grid,
+  .academic-scope-grid,
+  .academic-branch-form,
+  .academic-subject-form {
     grid-template-columns: 1fr;
   }
 
