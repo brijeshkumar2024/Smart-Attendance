@@ -1,29 +1,10 @@
 const fallbackApiBaseUrl = import.meta.env.DEV
   ? "http://localhost:5000/api"
-  : "https://smart-attendance-1-q3wu.onrender.com/api";
-
-const deprecatedApiHosts = {
-  "smart-attendance-api.onrender.com": "https://smart-attendance-1-q3wu.onrender.com",
-};
+  : "https://smart-attendance-api.onrender.com/api";
 
 const normalizeUrl = (url) => String(url || "").replace(/\/+$/, "");
 
-const resolveApiBaseUrl = (rawUrl) => {
-  const normalized = normalizeUrl(rawUrl);
-  try {
-    const parsed = new URL(normalized);
-    const migrated = deprecatedApiHosts[parsed.host];
-    if (!migrated) {
-      return normalized;
-    }
-    const migratedPath = parsed.pathname.replace(/\/+$/, "");
-    return `${normalizeUrl(migrated)}${migratedPath}`;
-  } catch {
-    return normalized;
-  }
-};
-
-const normalizedApiBase = resolveApiBaseUrl(
+const normalizedApiBase = normalizeUrl(
   import.meta.env.VITE_API_BASE_URL || fallbackApiBaseUrl
 );
 
