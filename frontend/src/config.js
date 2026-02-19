@@ -1,6 +1,6 @@
 const fallbackApiBaseUrl = import.meta.env.DEV
   ? "http://localhost:5000/api"
-  : `${window.location.origin}/api`;
+  : "https://smart-attendance-1-q3wu.onrender.com/api";
 
 const deprecatedApiHosts = {
   "smart-attendance-api.onrender.com": "https://smart-attendance-1-q3wu.onrender.com",
@@ -37,7 +37,7 @@ const SOCKET_URL = normalizeUrl(
 
 if (!import.meta.env.DEV && !import.meta.env.VITE_API_BASE_URL) {
   console.warn(
-    "VITE_API_BASE_URL is not set. Frontend will call same-origin /api in production."
+    "VITE_API_BASE_URL is not set. Frontend is using the default production API."
   );
 }
 
