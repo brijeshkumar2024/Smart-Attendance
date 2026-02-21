@@ -1,9 +1,11 @@
 import axios from "axios";
 import { API_BASE_URL } from "../src/config";
 
+const timeoutMs = Number.parseInt(import.meta.env.VITE_API_TIMEOUT_MS, 10);
+
 const API = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30000,
 });
 
 API.interceptors.request.use((req) => {

@@ -23,6 +23,12 @@ function Login() {
 
     } catch (error) {
       console.error("Login failed:", error);
+      if (error.code === "ECONNABORTED") {
+        alert(
+          `Server response slow hai (timeout). Please retry. Current API: ${API_BASE_URL}`
+        );
+        return;
+      }
       if (error.message === "Network Error") {
         alert(
           `Server se connection nahi ho pa raha. Current API: ${API_BASE_URL}`
